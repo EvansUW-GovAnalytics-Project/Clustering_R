@@ -18,7 +18,7 @@ _____
 Collect the data we prepared in Python:
 
 ```{r collecting, eval=TRUE}
-link='https://github.com/EvansDataScience/data/raw/master/hdidemocia.RDS'
+link='https://github.com/EvansUW-GovAnalytics-Project/students_merge/raw/main/demohdikw.RDS'
 # a RDS file from the web needs:
 myFile=url(link)
 
@@ -30,33 +30,17 @@ row.names(fromPy)=NULL
 ```
 
 
-Let's explore three types of clustering approaches.
-
-1. Partitioning: You will request a particular number of clusters to the algorithm. The algorithm will put every case in one of those clusters. Outliers will affect output.
-
-![Source: https://en.wikipedia.org/wiki/Cluster_analysis](https://upload.wikimedia.org/wikipedia/commons/c/c8/Cluster-2.svg)
-
-2. Hierarchizing: You will ask the algorithm to find all possible ways cases can be clustered, individually and in subgroups following a tree-construction/deconstruction approach. You should determine the right amount of clusters.Outliers will affect output.
-
-![Source: https://quantdare.com/hierarchical-clustering/](https://quantdare.com/wp-content/uploads/2016/06/AggloDivHierarClustering-800x389.png)
-
-3. Based on Density
-
-This approach will cluster cases as long as they are close to each other at a predetermined distance. You need to input the distance and the minimal amount of cases in a neighboorhood to be considered a cluster. The algorithm is not affected by outliers.
-
-![https://commons.wikimedia.org/wiki/Cluster_analysis](https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/DBSCAN-Gaussian-data.svg/600px-DBSCAN-Gaussian-data.svg.png)
-
-_____
 
 ## Preparing data:
 
 For all cases, you need the DISTANCE MATRIX:
 
 
+
 **a.** Explore variables you will used for clustering
 ```{r, eval=TRUE}
 
-dfClus=fromPy[,c('HDI','Score','kWh_pop')]
+dfClus=fromPy[,c('HDI','Democracy','kwh_pop')]
 summary(dfClus)
 ```
 
@@ -425,115 +409,6 @@ LABEL=ifelse(fromPy$db==0,fromPy$Country,"")
 dbPlot + geom_text_repel(aes(label=LABEL))
 ```
 
-# <font color="red">FACTOR ANALYSIS</font>
-
-You would like turn the 5 dimensions of democracy index into one, without following an arithmetic approach, but an algebraic one, instead. Dimension reduction is the job of latent variable analysis, and that's the way proposed here.
-
-
-Let me subset our original data frame:
-
-```{r, eval=TRUE}
-subDemo=fromPy[,c(8:12)]
-```
-
-
-Our *subDemo* DF has the data to compute the one index we need. I will show the technique called **confirmatory factor analysis**:
-
-```{r, eval=TRUE}
-names(subDemo)
-```
-
-
-```{r, eval=TRUE}
-library(lavaan)
-
-model='
-dem=~Electoralprocessandpluralism + Functioningofgovernment + Politicalparticipation + Politicalculture + Civilliberties
-'
-
-fit<-cfa(model, data = subDemo,std.lv=TRUE)
-indexCFA=lavPredict(fit)
-```
-
-The index computed is not in a range from 0 to 10:
-```{r, eval=TRUE}
-library(magrittr)
-indexCFA%>%head(10)
-```
-
-
-We force its return to "0 to 10":
-
-```{r, eval=TRUE}
-library(scales)
-indexCFANorm=rescale(as.vector(indexCFA), 
-                     to = c(0, 10))
-```
-
-
-So, this is our index:
-```{r, eval=TRUE}
-fromPy$demo_FA=indexCFANorm
-```
-
-Let me plot this index:
-```{r, eval=TRUE}
-library(ggplot2)
-base=ggplot(data=fromPy,
-            aes(x=demo_FA))
-base+geom_histogram()
-```
-
-
-Let me compare the new index with the original score:
-```{r, eval=TRUE}
-base=ggplot(data=fromPy,
-            aes(x=demo_FA,y=Score))
-base+geom_point()
-```
-
-Let me see some evaluation measures of our index for democracy:
-
-```{r, eval=TRUE}
-evalCFA1=parameterEstimates(fit, standardized =TRUE)
-```
-
-* Loadings
-```{r, eval=TRUE}
-evalCFA1[evalCFA1$op=="=~",c('rhs','std.all','pvalue')]
-```
-
-* Some coefficients:
-
-```{r, eval=TRUE}
-evalCFA2=as.list(fitMeasures(fit))
-```
-
-* You want p.value of Chi-Square greater than 0.05:
-
-```{r, eval=TRUE}
-evalCFA2[c("chisq", "df", "pvalue")] 
-```
-
-* You want the Tucker-Lewis > 0.9:
-
-```{r, eval=TRUE}
-evalCFA2$tli # > 0.90
-```
-
-* You want RMSEA < 0.05:
-
-```{r, eval=TRUE}
-evalCFA2[c( 'rmsea.ci.lower','rmsea','rmsea.ci.upper')] 
-```
-
-You can see how it looks:
-
-```{r, eval=TRUE}
-library(semPlot)
-semPaths(fit, what='std', nCharNodes=10, sizeMan=8,
-         edge.label.cex=1.5, fade=T,residuals = F)
-```
 
 
 
